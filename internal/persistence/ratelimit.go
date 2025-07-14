@@ -2,7 +2,6 @@ package persistence
 
 import (
 	"errors"
-	"fmt"
 	"time"
 )
 
@@ -71,8 +70,6 @@ func (p *MemoryRateLimitPersistence) UseToken(key string) error {
 	if last.Milliseconds() > p.period.Milliseconds() {
 		bucket = p.Refill(key)
 	}
-
-	fmt.Printf(">>>>> %s -- %d -- %v -- %v\n", key, last.Milliseconds(), ok, bucket.Tokens)
 
 	if bucket.Tokens < 1 {
 		return errors.New("you have reached the maximum number of requests or actions allowed within a certain time frame")

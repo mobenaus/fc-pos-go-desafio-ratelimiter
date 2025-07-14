@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/mobenaus/fc-pos-go-desafio-ratelimiter/internal/ratelimit"
@@ -38,7 +37,6 @@ func (rl *RateLimitMiddleWareConfig) RateLimitMiddleware() func(next http.Handle
 				w.Write([]byte("you have reached the maximum number of requests or actions allowed within a certain time frame"))
 				return
 			}
-			fmt.Printf("Limit test: %s %s from %s\n", r.Method, r.URL.Path, util.GetIpFromAddress(r.RemoteAddr))
 			next.ServeHTTP(w, r)
 		})
 	}

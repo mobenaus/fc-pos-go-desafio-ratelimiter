@@ -1,7 +1,6 @@
 package ratelimit
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/mobenaus/fc-pos-go-desafio-ratelimiter/internal/persistence"
@@ -38,7 +37,6 @@ func (r *RateLimitConfig) GetRateLimit(key string) *RateLimit {
 }
 
 func (rl *RateLimit) UseToken() error {
-	fmt.Printf("check limit: %s %s\n", rl.config.Prefix, rl.key)
 	error := rl.config.Persistence.UseToken(rl.key)
 	return error
 }
