@@ -32,9 +32,9 @@ func (rl *RateLimitMiddleWareConfig) RateLimitMiddleware() func(next http.Handle
 			} else {
 				limit = rl.IPRateLimitConfig.GetRateLimit(util.GetIpFromAddress(r.RemoteAddr))
 			}
-			if limit.UseToken() != nil {
+			if error := limit.UseToken(); error != nil {
 				w.WriteHeader(http.StatusTooManyRequests)
-				w.Write([]byte("you have reached the maximum number of requests or actions allowed within a certain time frame"))
+				w.Write([]byte(error.Error()))
 				return
 			}
 			next.ServeHTTP(w, r)
