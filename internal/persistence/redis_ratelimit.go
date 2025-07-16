@@ -30,6 +30,8 @@ func NewRedisRateLimitPersistence(ctx context.Context, rdb *redis.Client, prefix
 }
 
 func (p *RedisRateLimitPersistence) UseToken(key string) error {
+
+	maxrequests := errors.New("you have reached the maximum number of requests or actions allowed within a certain time frame")
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -39,49 +41,61 @@ func (p *RedisRateLimitPersistence) UseToken(key string) error {
 
 	pipe := p.rdb.TxPipeline()
 
-	exists, _ := p.rdb.Exists(p.ctx, refillKey).Result()
+	exists, error := p.rdb.Exists(p.ctx, refillKey).Result()
+	if error != nil {
+		return maxrequests
+	}
 	if exists == 0 {
-		bucket = Bucket{
-			LastReffil: time.Now(),
-			Tokens:     p.capacity,
-		}
+		bucket = p.refill()
 	} else {
-
-		rs := p.rdb.Get(p.ctx, refillKey).Val()
-		refill, error := time.Parse(time.RFC3339Nano, rs)
+		bucket, error = p.fill(refillKey, tokensKey)
 		if error != nil {
-			return errors.New("you have reached the maximum number of requests or actions allowed within a certain time frame")
-		}
-		ts, error := p.rdb.Get(p.ctx, tokensKey).Int()
-		if error != nil {
-			return errors.New("you have reached the maximum number of requests or actions allowed within a certain time frame")
-		}
-
-		bucket = Bucket{
-			LastReffil: refill,
-			Tokens:     ts,
+			return maxrequests
 		}
 	}
 
 	last := time.Since(bucket.LastReffil)
 	if last.Milliseconds() > p.period.Milliseconds() {
-		bucket = Bucket{
-			LastReffil: time.Now(),
-			Tokens:     p.capacity,
-		}
+		bucket = p.refill()
 	}
 
 	if bucket.Tokens < 1 {
-		return errors.New("you have reached the maximum number of requests or actions allowed within a certain time frame")
+		return maxrequests
 	}
 
 	bucket.Tokens -= 1
 
 	pipe.Set(p.ctx, refillKey, bucket.LastReffil.Format(time.RFC3339Nano), p.period)
 	pipe.Set(p.ctx, tokensKey, bucket.Tokens, p.period)
-	_, error := pipe.Exec(p.ctx)
+
+	_, error = pipe.Exec(p.ctx)
 	if error != nil {
-		return errors.New("you have reached the maximum number of requests or actions allowed within a certain time frame")
+		return maxrequests
 	}
+
 	return nil
+}
+
+func (p *RedisRateLimitPersistence) fill(refillKey string, tokensKey string) (Bucket, error) {
+	rs := p.rdb.Get(p.ctx, refillKey).Val()
+	refill, error := time.Parse(time.RFC3339Nano, rs)
+	if error != nil {
+		return Bucket{}, error
+	}
+	ts, error := p.rdb.Get(p.ctx, tokensKey).Int()
+	if error != nil {
+		return Bucket{}, error
+	}
+
+	return Bucket{
+		LastReffil: refill,
+		Tokens:     ts,
+	}, nil
+}
+
+func (p *RedisRateLimitPersistence) refill() Bucket {
+	return Bucket{
+		LastReffil: time.Now(),
+		Tokens:     p.capacity,
+	}
 }
