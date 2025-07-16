@@ -8,13 +8,13 @@ import (
 )
 
 type RateLimitMiddleWareConfig struct {
-	IPRateLimitConfig    ratelimit.RateLimitConfig
-	TokenRateLimitConfig ratelimit.RateLimitConfig
+	IPRateLimitConfig    ratelimit.RateLimit
+	TokenRateLimitConfig ratelimit.RateLimit
 }
 
 func NewRateLimitConfig(
-	ipconfig ratelimit.RateLimitConfig,
-	tokenconfig ratelimit.RateLimitConfig,
+	ipconfig ratelimit.RateLimit,
+	tokenconfig ratelimit.RateLimit,
 ) *RateLimitMiddleWareConfig {
 	return &RateLimitMiddleWareConfig{
 		IPRateLimitConfig:    ipconfig,
@@ -25,14 +25,14 @@ func NewRateLimitConfig(
 func (rl *RateLimitMiddleWareConfig) RateLimitMiddleware() func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			var limit *ratelimit.RateLimit
+			var error error
 			apiKey := r.Header.Get("API_KEY")
 			if apiKey != "" {
-				limit = rl.TokenRateLimitConfig.GetRateLimit(apiKey)
+				error = rl.TokenRateLimitConfig.UseToken(apiKey)
 			} else {
-				limit = rl.IPRateLimitConfig.GetRateLimit(util.GetIpFromAddress(r.RemoteAddr))
+				error = rl.IPRateLimitConfig.UseToken(util.GetIpFromAddress(r.RemoteAddr))
 			}
-			if error := limit.UseToken(); error != nil {
+			if error != nil {
 				w.WriteHeader(http.StatusTooManyRequests)
 				w.Write([]byte(error.Error()))
 				return

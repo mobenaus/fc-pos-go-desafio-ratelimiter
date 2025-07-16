@@ -10,7 +10,5 @@ type Bucket struct {
 }
 
 type RateLimitPersistence interface {
-	SetRules(capacity int, period time.Duration)
-	Refill(key string) *Bucket
 	UseToken(key string) error
 }

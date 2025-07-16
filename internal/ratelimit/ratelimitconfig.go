@@ -1,42 +1,21 @@
 package ratelimit
 
 import (
-	"time"
-
 	"github.com/mobenaus/fc-pos-go-desafio-ratelimiter/internal/persistence"
 )
 
-type RateLimitConfig struct {
-	Prefix      string
-	Capacity    int
-	Period      time.Duration
+type RateLimit struct {
 	Persistence persistence.RateLimitPersistence
 }
 
-type RateLimit struct {
-	config RateLimitConfig
-	key    string
-}
-
-func NewRateLimitConfig(prefix string, capacity int, period time.Duration, persistence persistence.RateLimitPersistence) RateLimitConfig {
-	rlc := RateLimitConfig{
-		Prefix:      prefix,
-		Capacity:    capacity,
-		Period:      period,
+func NewRateLimitConfig(persistence persistence.RateLimitPersistence) RateLimit {
+	rl := RateLimit{
 		Persistence: persistence,
 	}
-	rlc.Persistence.SetRules(capacity, period)
-	return rlc
+	return rl
 }
 
-func (r *RateLimitConfig) GetRateLimit(key string) *RateLimit {
-	return &RateLimit{
-		config: *r,
-		key:    key,
-	}
-}
-
-func (rl *RateLimit) UseToken() error {
-	error := rl.config.Persistence.UseToken(rl.key)
+func (rl *RateLimit) UseToken(key string) error {
+	error := rl.Persistence.UseToken(key)
 	return error
 }

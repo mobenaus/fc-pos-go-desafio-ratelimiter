@@ -1,0 +1,7 @@
+services:
+  cache:
+    image: redis:8
+    restart: always
+    command: redis-server --loglevel debug
+    ports:
+      - '6379:6379'

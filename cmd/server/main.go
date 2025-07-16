@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 
 	"github.com/mobenaus/fc-pos-go-desafio-ratelimiter/internal/middleware"
 	"github.com/mobenaus/fc-pos-go-desafio-ratelimiter/internal/persistence"
@@ -31,13 +34,34 @@ func main() {
 	mux.HandleFunc("/", handler)
 	fmt.Println("Server listening on :8080")
 
-	ipconfig := ratelimit.NewRateLimitConfig("IP", 5, time.Second, persistence.NewMemoryRateLimitPersistence())
-	tokenconfig := ratelimit.NewRateLimitConfig("API", 5, time.Second, persistence.NewMemoryRateLimitPersistence())
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379", // Redis server address
+		Password: "",               // No password set
+		DB:       0,                // Default DB
+	})
+	defer rdb.Close()
+
+	ctx := context.Background()
+
+	pong, err := rdb.Ping(ctx).Result()
+	if err != nil {
+		panic(fmt.Sprintf("Error connecting to Redis: %v", err))
+	}
+	fmt.Println("Connected to Redis:", pong)
+
+	// implementação com mapa em memoria
+	//ipconfig := ratelimit.NewRateLimitConfig(persistence.NewMemoryRateLimitPersistence(5, time.Second))
+	//tokenconfig := ratelimit.NewRateLimitConfig(persistence.NewMemoryRateLimitPersistence(5, time.Second))
+
+	// implementação com mapa no REDIS
+	ipconfig := ratelimit.NewRateLimitConfig(persistence.NewRedisRateLimitPersistence(ctx, rdb, "IP", 5, time.Second))
+	tokenconfig := ratelimit.NewRateLimitConfig(persistence.NewRedisRateLimitPersistence(ctx, rdb, "TOKEN", 5, time.Second))
+
 	config := middleware.NewRateLimitConfig(ipconfig, tokenconfig)
 
 	rateLimitMiddleWare := config.RateLimitMiddleware()
 
-	err := http.ListenAndServe(":8080",
+	err = http.ListenAndServe(":8080",
 		middleware.LoggingMiddleware(
 			rateLimitMiddleWare(
 				mux)))
