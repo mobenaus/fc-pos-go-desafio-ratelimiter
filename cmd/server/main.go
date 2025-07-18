@@ -2,70 +2,84 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 
+	"github.com/mobenaus/fc-pos-go-desafio-ratelimiter/configs"
+	"github.com/mobenaus/fc-pos-go-desafio-ratelimiter/handler"
 	"github.com/mobenaus/fc-pos-go-desafio-ratelimiter/internal/middleware"
 	"github.com/mobenaus/fc-pos-go-desafio-ratelimiter/internal/persistence"
 	"github.com/mobenaus/fc-pos-go-desafio-ratelimiter/internal/ratelimit"
 )
 
-type HandlerResult struct {
-	Message string `json:"message"`
-	Error   string `json:"error,omitempty"`
-	Data    any    `json:"data,omitempty"`
-}
-
-func handler(w http.ResponseWriter, r *http.Request) {
-	result := HandlerResult{
-		Message: "Hello, World!",
-		Data:    map[string]string{"info": "Sample data"},
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
-}
-
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", handler)
-	fmt.Println("Server listening on :8080")
+	configs := loadConfigurations()
+	IPRatePeriod, err := time.ParseDuration(configs.IPRatePeriod)
+	if err != nil {
+		panic(fmt.Sprintf("Error load config IP Rate Period: %v", err))
+	}
+	TOKENRatePeriod, err := time.ParseDuration(configs.TOKENRatePeriod)
+	if err != nil {
+		panic(fmt.Sprintf("Error load config TOKEN Rate Period: %v", err))
+	}
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379", // Redis server address
-		Password: "",               // No password set
-		DB:       0,                // Default DB
-	})
-	defer rdb.Close()
-
+	var rdb *redis.Client
 	ctx := context.Background()
 
-	pong, err := rdb.Ping(ctx).Result()
-	if err != nil {
-		panic(fmt.Sprintf("Error connecting to Redis: %v", err))
+	defer func() {
+		if rdb != nil {
+			rdb.Close()
+		}
+	}()
+
+	var ipconfig *ratelimit.RateLimit
+	var tokenconfig *ratelimit.RateLimit
+
+	if configs.RateLimitStrategy == "REDIS" {
+		rdb = redis.NewClient(&redis.Options{
+			Addr:     configs.REDISAddr,
+			Password: configs.REDISPassword,
+			DB:       configs.REDISDefaultDB,
+		})
+
+		pong, err := rdb.Ping(ctx).Result()
+		if err != nil {
+			panic(fmt.Sprintf("Error connecting to Redis: %v", err))
+		}
+		fmt.Println("Connected to Redis:", pong)
+		// implementação com mapa no REDIS
+		ipconfig = ratelimit.NewRateLimit(persistence.NewRedisRateLimitPersistence(ctx, rdb, "IP", configs.IPRateLimit, IPRatePeriod))
+		tokenconfig = ratelimit.NewRateLimit(persistence.NewRedisRateLimitPersistence(ctx, rdb, "TOKEN", configs.TOKENRateLimit, TOKENRatePeriod))
+	} else {
+		// implementação com mapa em memoria
+		ipconfig = ratelimit.NewRateLimit(persistence.NewMemoryRateLimitPersistence(configs.IPRateLimit, IPRatePeriod))
+		tokenconfig = ratelimit.NewRateLimit(persistence.NewMemoryRateLimitPersistence(configs.TOKENRateLimit, TOKENRatePeriod))
 	}
-	fmt.Println("Connected to Redis:", pong)
 
-	// implementação com mapa em memoria
-	//ipconfig := ratelimit.NewRateLimitConfig(persistence.NewMemoryRateLimitPersistence(5, time.Second))
-	//tokenconfig := ratelimit.NewRateLimitConfig(persistence.NewMemoryRateLimitPersistence(5, time.Second))
-
-	// implementação com mapa no REDIS
-	ipconfig := ratelimit.NewRateLimitConfig(persistence.NewRedisRateLimitPersistence(ctx, rdb, "IP", 5, time.Second))
-	tokenconfig := ratelimit.NewRateLimitConfig(persistence.NewRedisRateLimitPersistence(ctx, rdb, "TOKEN", 5, time.Second))
-
-	config := middleware.NewRateLimitConfig(ipconfig, tokenconfig)
+	config := middleware.NewRateLimit(ipconfig, tokenconfig)
 
 	rateLimitMiddleWare := config.RateLimitMiddleware()
 
-	err = http.ListenAndServe(":8080",
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handler.Handler)
+	fmt.Printf("Server listening on :%s\n", configs.WebServerPort)
+	err = http.ListenAndServe(fmt.Sprintf(":%s", configs.WebServerPort),
 		middleware.LoggingMiddleware(
 			rateLimitMiddleWare(
 				mux)))
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 	}
+}
+
+func loadConfigurations() *configs.Conf {
+	configs, err := configs.LoadConfig(".")
+	if err != nil {
+		panic(err)
+	}
+	return configs
 }

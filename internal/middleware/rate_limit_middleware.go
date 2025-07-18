@@ -7,22 +7,22 @@ import (
 	"github.com/mobenaus/fc-pos-go-desafio-ratelimiter/internal/util"
 )
 
-type RateLimitMiddleWareConfig struct {
-	IPRateLimitConfig    ratelimit.RateLimit
-	TokenRateLimitConfig ratelimit.RateLimit
+type RateLimitMiddleWare struct {
+	IPRateLimitConfig    *ratelimit.RateLimit
+	TokenRateLimitConfig *ratelimit.RateLimit
 }
 
-func NewRateLimitConfig(
-	ipconfig ratelimit.RateLimit,
-	tokenconfig ratelimit.RateLimit,
-) *RateLimitMiddleWareConfig {
-	return &RateLimitMiddleWareConfig{
+func NewRateLimit(
+	ipconfig *ratelimit.RateLimit,
+	tokenconfig *ratelimit.RateLimit,
+) *RateLimitMiddleWare {
+	return &RateLimitMiddleWare{
 		IPRateLimitConfig:    ipconfig,
 		TokenRateLimitConfig: tokenconfig,
 	}
 }
 
-func (rl *RateLimitMiddleWareConfig) RateLimitMiddleware() func(next http.Handler) http.Handler {
+func (rl *RateLimitMiddleWare) RateLimitMiddleware() func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var error error

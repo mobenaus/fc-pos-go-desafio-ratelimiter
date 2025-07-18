@@ -1,7 +1,32 @@
 services:
-  cache:
+  redis:
+    container_name: redis
     image: redis:8
     restart: always
     command: redis-server --loglevel debug
-    ports:
+    ports: 
       - '6379:6379'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  server:
+    container_name: server
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_ADDR=redis:6379
+      - IP_RATE_LIMIT=50
+      - IP_RATE_PERIOD=1s
+      - TOKEN_RATE_LIMIT=100
+      - TOKEN_RATE_PERIOD=1s
+  test-ip-limit:
+    container_name: test-ip-limit
+    image: rcmorano/docker-hey
+    command: ["-n", "1000", "-c", "2", "-q", "50", "http://server:8080/"]
+  test-api-limit:
+    container_name: test-api-limit
+    image: rcmorano/docker-hey
+    command: ["-n", "1000", "-c", "2", "-q", "50", "-H", "API_KEY: TESTE", "http://server:8080/"]

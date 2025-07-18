@@ -10,5 +10,8 @@ type Bucket struct {
 }
 
 type RateLimitPersistence interface {
-	UseToken(key string) error
+	GetBucket(key string) (*Bucket, error)
+	CheckRefill(lastReffil time.Time) bool
+	Refill(bucket *Bucket)
+	SaveBucket(key string, bucket *Bucket) error
 }

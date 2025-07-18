@@ -1,8 +1,6 @@
 package persistence
 
 import (
-	"errors"
-	"sync"
 	"time"
 )
 
@@ -10,7 +8,6 @@ type MemoryRateLimitPersistence struct {
 	capacity int
 	period   time.Duration
 	buckets  map[string]*Bucket
-	mutex    sync.Mutex
 }
 
 func NewMemoryRateLimitPersistence(capacity int, period time.Duration) *MemoryRateLimitPersistence {
@@ -21,39 +18,29 @@ func NewMemoryRateLimitPersistence(capacity int, period time.Duration) *MemoryRa
 	}
 }
 
-func (p *MemoryRateLimitPersistence) refill(key string) *Bucket {
+func (p *MemoryRateLimitPersistence) Refill(bucket *Bucket) {
+	bucket.LastReffil = time.Now()
+	bucket.Tokens = p.capacity
+}
+
+func (p *MemoryRateLimitPersistence) GetBucket(key string) (*Bucket, error) {
 	bucket, ok := (p.buckets)[key]
 	if !ok {
 		bucket = &Bucket{
-			Tokens:     p.capacity,
 			LastReffil: time.Now(),
+			Tokens:     p.capacity,
 		}
-		(p.buckets)[key] = bucket
-	} else {
-		bucket.LastReffil = time.Now()
-		bucket.Tokens = p.capacity
 	}
-	return bucket
+
+	return bucket, nil
 }
 
-func (p *MemoryRateLimitPersistence) UseToken(key string) error {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	bucket, ok := (p.buckets)[key]
-	if !ok {
-		bucket = p.refill(key)
-	}
+func (p *MemoryRateLimitPersistence) CheckRefill(lastReffil time.Time) bool {
+	last := time.Since(lastReffil)
+	return last.Milliseconds() > p.period.Milliseconds()
+}
 
-	last := time.Since(bucket.LastReffil)
-	if last.Milliseconds() > p.period.Milliseconds() {
-		bucket = p.refill(key)
-	}
-
-	if bucket.Tokens < 1 {
-		return errors.New("you have reached the maximum number of requests or actions allowed within a certain time frame")
-	}
-
-	bucket.Tokens -= 1
-
+func (p *MemoryRateLimitPersistence) SaveBucket(key string, bucket *Bucket) error {
+	(p.buckets)[key] = bucket
 	return nil
 }
