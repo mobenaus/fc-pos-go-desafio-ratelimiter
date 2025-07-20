@@ -211,6 +211,7 @@ O resultado dos testes para o container test-api-limit podem ser verificados vis
 docker compose logs test-api-limit
 ```
 O teste utiliza a imagem rcmorano/docker-hey configurado para fazer 1000 requisições durante 2 segundos, em 2 processos concorrentes com 50 requisições por segundo em cada processo e passando um header API_KEY nas requisições.
+
 O resultado deve ser que aproximadamente todas as requisições serão aceitas com status 200
 ```
 test-api-limit  | Status code distribution:
@@ -221,7 +222,9 @@ Outro teste com o container test-ip-limit pode ser verificado visualizando os lo
 ```
 docker compose logs test-ip-limit
 ```
-O teste teve as mesmas configurações, porem sem passar o header API_KEY, o resultado deve ser aproximadamente metade das requisições são aceitas com o status 200 enquando o resto é retornado com o status 429.
+O teste teve as mesmas configurações, porem sem passar o header API_KEY.
+
+O resultado deve ser aproximadamente metade das requisições são aceitas com o status 200 enquando o resto é retornado com o status 429.
 ```
 test-ip-limit  | Status code distribution:
 test-ip-limit  |   [200]        500 responses
