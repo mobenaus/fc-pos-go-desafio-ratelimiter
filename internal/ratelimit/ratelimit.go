@@ -29,7 +29,7 @@ func (rl *RateLimit) UseToken(key string) error {
 		return errors.New("you have reached the maximum number of requests or actions allowed within a certain time frame")
 	}
 
-	if p.CheckRefill(bucket.LastReffil) {
+	if p.CheckRefill(bucket) {
 		p.Refill(bucket)
 	}
 
@@ -37,7 +37,7 @@ func (rl *RateLimit) UseToken(key string) error {
 		return errors.New("you have reached the maximum number of requests or actions allowed within a certain time frame")
 	}
 
-	bucket.Tokens -= 1
+	bucket.Tokens--
 
 	error = p.SaveBucket(key, bucket)
 	if error != nil {

@@ -22,11 +22,17 @@ services:
       - IP_RATE_PERIOD=1s
       - TOKEN_RATE_LIMIT=100
       - TOKEN_RATE_PERIOD=1s
+    depends_on:
+      - redis
   test-ip-limit:
     container_name: test-ip-limit
     image: rcmorano/docker-hey
     command: ["-n", "1000", "-c", "2", "-q", "50", "http://server:8080/"]
+    depends_on:
+      - server
   test-api-limit:
     container_name: test-api-limit
     image: rcmorano/docker-hey
     command: ["-n", "1000", "-c", "2", "-q", "50", "-H", "API_KEY: TESTE", "http://server:8080/"]
+    depends_on:
+      - server

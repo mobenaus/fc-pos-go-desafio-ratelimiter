@@ -11,7 +11,7 @@ type Bucket struct {
 
 type RateLimitPersistence interface {
 	GetBucket(key string) (*Bucket, error)
-	CheckRefill(lastReffil time.Time) bool
+	CheckRefill(bucket *Bucket) bool
 	Refill(bucket *Bucket)
 	SaveBucket(key string, bucket *Bucket) error
 }

@@ -40,17 +40,7 @@ func main() {
 	var tokenconfig *ratelimit.RateLimit
 
 	if configs.RateLimitStrategy == "REDIS" {
-		rdb = redis.NewClient(&redis.Options{
-			Addr:     configs.REDISAddr,
-			Password: configs.REDISPassword,
-			DB:       configs.REDISDefaultDB,
-		})
-
-		pong, err := rdb.Ping(ctx).Result()
-		if err != nil {
-			panic(fmt.Sprintf("Error connecting to Redis: %v", err))
-		}
-		fmt.Println("Connected to Redis:", pong)
+		rdb = connectRedis(ctx, configs)
 		// implementação com mapa no REDIS
 		ipconfig = ratelimit.NewRateLimit(persistence.NewRedisRateLimitPersistence(ctx, rdb, "IP", configs.IPRateLimit, IPRatePeriod))
 		tokenconfig = ratelimit.NewRateLimit(persistence.NewRedisRateLimitPersistence(ctx, rdb, "TOKEN", configs.TOKENRateLimit, TOKENRatePeriod))
@@ -74,6 +64,21 @@ func main() {
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 	}
+}
+
+func connectRedis(ctx context.Context, configs *configs.Conf) *redis.Client {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     configs.REDISAddr,
+		Password: configs.REDISPassword,
+		DB:       configs.REDISDefaultDB,
+	})
+
+	pong, err := rdb.Ping(ctx).Result()
+	if err != nil {
+		panic(fmt.Sprintf("Error connecting to Redis: %v", err))
+	}
+	fmt.Println("Connected to Redis:", pong)
+	return rdb
 }
 
 func loadConfigurations() *configs.Conf {

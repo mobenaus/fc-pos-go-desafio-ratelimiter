@@ -35,8 +35,8 @@ func (p *MemoryRateLimitPersistence) GetBucket(key string) (*Bucket, error) {
 	return bucket, nil
 }
 
-func (p *MemoryRateLimitPersistence) CheckRefill(lastReffil time.Time) bool {
-	last := time.Since(lastReffil)
+func (p *MemoryRateLimitPersistence) CheckRefill(bucket *Bucket) bool {
+	last := time.Since(bucket.LastReffil)
 	return last.Milliseconds() > p.period.Milliseconds()
 }
 

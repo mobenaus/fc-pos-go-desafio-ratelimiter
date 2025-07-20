@@ -55,8 +55,8 @@ func (p *RedisRateLimitPersistence) GetBucket(key string) (*Bucket, error) {
 	return &bucket, nil
 }
 
-func (p *RedisRateLimitPersistence) CheckRefill(lastReffil time.Time) bool {
-	last := time.Since(lastReffil)
+func (p *RedisRateLimitPersistence) CheckRefill(bucket *Bucket) bool {
+	last := time.Since(bucket.LastReffil)
 	return last.Milliseconds() > p.period.Milliseconds()
 }
 
